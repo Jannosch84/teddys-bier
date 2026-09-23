@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teddy's Bier-Reifekalender</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#b87928">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Teddy's Bier">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+  :root { --bg:#f5f1e8; --card:#fffdf8; --ink:#29251f; --muted:#766f64; --accent:#b87928; --good:#39734a; --warn:#b56a21; --line:#ded6c8; }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+  .wrap{max-width:1050px;margin:auto;padding:22px}
+  header{display:flex;justify-content:space-between;gap:16px;align-items:end;margin-bottom:20px}
+  h1{margin:0;font-size:clamp(25px,5vw,38px)} .sub{color:var(--muted);margin-top:5px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:18px;box-shadow:0 4px 16px #0000000a}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  label{font-size:13px;font-weight:650;color:var(--muted);display:block;margin-bottom:5px}
+  input,select,button{font:inherit;border-radius:10px;border:1px solid var(--line);padding:10px;background:white;color:var(--ink)}
+  input,select{width:100%} button{cursor:pointer;font-weight:700}
+  .primary{background:var(--accent);border-color:var(--accent);color:white}
+  .danger{background:#fff;border-color:#d7aaa0;color:#8d3327}
+  .actions{display:flex;gap:8px;align-items:end}
+  .beer{display:grid;grid-template-columns:1.2fr 1.2fr 1fr 1fr auto;gap:15px;align-items:center;border-top:1px solid var(--line);padding:16px 0}
+  .beer:first-child{border-top:0}.name{font-size:18px;font-weight:800}.style{color:var(--muted);font-size:13px}
+  .days{font-size:22px;font-weight:800}.small{font-size:12px;color:var(--muted)}
+  .bar{height:9px;background:#e8e1d5;border-radius:99px;overflow:hidden;margin-top:8px}.fill{height:100%;border-radius:99px}
+  .status{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800}
+  .status.before{background:#eee9df;color:#6e665b}.status.peak{background:#dcefe1;color:#28613b}.status.after{background:#f8e7d3;color:#8a5019}
+  .empty{text-align:center;color:var(--muted);padding:24px}
+  .legend{font-size:12px;color:var(--muted);line-height:1.5}
+  @media(max-width:800px){.grid{grid-template-columns:1fr 1fr}.beer{grid-template-columns:1fr 1fr}.beer .actions{grid-column:1/-1}.beer .timeline{grid-column:1/-1}}
+  @media(max-width:500px){.grid{grid-template-columns:1fr}.beer{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>🍺 Teddy's Bier-Reifekalender</h1>
+    <div class="sub">Abfüllung, Kühlung und optimaler Trinkzeitpunkt im Blick.</div>
+  </div>
+</header>
+
+<section class="card">
+  <h2 style="margin-top:0">Neues Bier eintragen</h2>
+  <div class="grid">
+    <div><label>Biername</label><input id="name" placeholder="z. B. Teddy's Festbier"></div>
+    <div><label>Bierstil</label>
+      <select id="style" onchange="applyStyle()">
+        <option value="Pils">Pils</option>
+        <option value="Helles">Helles</option>
+        <option value="Festbier">Festbier / Märzen</option>
+        <option value="Lager">Lager</option>
+        <option value="Weizen">Weizen / Weizenbock</option>
+        <option value="IPA">IPA</option>
+        <option value="Belgisch">Belgisches Ale</option>
+        <option value="Stout">Stout / Porter</option>
+        <option value="custom">Eigene Reifezeit</option>
+      </select>
+    </div>
+    <div><label>Abgefüllt am</label><input id="bottled" type="date"></div>
+    <div><label>Seit Kühlung am</label><input id="cold" type="date"></div>
+    <div><label>Höhepunkt nach Kühlbeginn (Tage)</label><input id="peak" type="number" min="1" value="21"></div>
+  </div>
+  <div style="margin-top:12px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+    <div class="legend">Der Höhepunkt ist bewusst als Richtwert gedacht und kann je nach Bier, Abfüllung und Lagerung angepasst werden.</div>
+    <button class="primary" onclick="addBeer()">+ Bier speichern</button>
+  </div>
+</section>
+
+<section class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+    <h2 style="margin:0">Deine Biere</h2>
+    <button class="danger" onclick="clearAll()">Alle löschen</button>
+  </div>
+  <div id="list"></div>
+</section>
+</div>
+
+<script>
+const presets = {
+  Pils: 21, Helles: 21, Festbier: 28, Lager: 35, Weizen: 14,
+  IPA: 10, Belgisch: 28, Stout: 60, custom: 21
+};
+const $ = id => document.getElementById(id);
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function applyStyle(){ $("peak").value = presets[$("style").value] ?? 21; }
+$("bottled").value = todayISO(); $("cold").value = todayISO();
+
+function load(){ return JSON.parse(localStorage.getItem("teddy_beers") || "[]"); }
+function save(a){ localStorage.setItem("teddy_beers", JSON.stringify(a)); render(); }
+
+function addBeer(){
+  const name=$("name").value.trim();
+  if(!name || !$("bottled").value || !$("cold").value) return alert("Bitte Biername, Abfüllung und Kühlbeginn eintragen.");
+  const a=load();
+  a.push({
+    id: Date.now(), name, style:$("style").value,
+    bottled:$("bottled").value, cold:$("cold").value,
+    peak:Math.max(1,Number($("peak").value)||21)
+  });
+  save(a);
+  $("name").value="";
+}
+
+function daysSince(date){
+  const d=new Date(date+"T00:00:00"), n=new Date();
+  n.setHours(0,0,0,0);
+  return Math.max(0,Math.floor((n-d)/86400000));
+}
+function fmt(date){ return new Date(date+"T00:00:00").toLocaleDateString("de-DE"); }
+function addDays(date,days){
+  const d=new Date(date+"T00:00:00"); d.setDate(d.getDate()+days);
+  return d.toLocaleDateString("de-DE");
+}
+function status(days,peak){
+  if(days < peak*0.75) return ["before","Noch in der Reifephase"];
+  if(days <= peak*1.25) return ["peak","🔥 Rund um den Höhepunkt"];
+  return ["after","Weiter gereift"];
+}
+function pct(days,peak){ return Math.min(100, Math.round(days/peak*100)); }
+
+function render(){
+  const a=load(), el=$("list");
+  if(!a.length){ el.innerHTML='<div class="empty">Noch kein Bier eingetragen. 🍻</div>'; return; }
+  a.sort((x,y)=>new Date(x.cold)-new Date(y.cold));
+  el.innerHTML=a.map(b=>{
+    const db=daysSince(b.bottled), dc=daysSince(b.cold), [cls,txt]=status(dc,b.peak);
+    return `<div class="beer">
+      <div><div class="name">${esc(b.name)}</div><div class="style">${esc(b.style)}</div></div>
+      <div><div class="small">Abgefüllt</div><b>${fmt(b.bottled)}</b><div class="small">${db} Tage</div></div>
+      <div><div class="small">Kühlung</div><b>${fmt(b.cold)}</b><div class="small">${dc} Tage kalt</div></div>
+      <div>
+        <span class="status ${cls}">${txt}</span>
+        <div class="bar"><div class="fill" style="width:${pct(dc,b.peak)}%"></div></div>
+        <div class="small">Höhepunkt ca. ${addDays(b.cold,b.peak)}</div>
+      </div>
+      <div class="actions"><button class="danger" onclick="removeBeer(${b.id})">Löschen</button></div>
+      <div class="timeline"><div class="small">Reife-Fortschritt: ${dc} / ${b.peak} Tage · Richtwert für besten Trinkmoment: <b>${addDays(b.cold,b.peak)}</b></div></div>
+    </div>`;
+  }).join("");
+}
+function removeBeer(id){ save(load().filter(b=>b.id!==id)); }
+function clearAll(){ if(confirm("Wirklich alle Biere löschen?")){ localStorage.removeItem("teddy_beers"); render(); } }
+function esc(s){ return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])); }
+render();
+setInterval(render, 60000);
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+}
+</script>
+</body>
+</html>

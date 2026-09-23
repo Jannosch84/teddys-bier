@@ -1,0 +1,13 @@
+{
+  "name": "Teddy's Bier-Reifekalender",
+  "short_name": "Teddy's Bier",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f1e8",
+  "theme_color": "#b87928",
+  "description": "Bier-Reifekalender für Abfüllung, Kühlung und optimalen Trinkzeitpunkt.",
+  "icons": [
+    {"src":"icon-180.png","sizes":"180x180","type":"image/png","purpose":"any maskable"},
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}
